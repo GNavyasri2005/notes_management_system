@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Notes System{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-light d-flex flex-column min-vh-100">
+
+<!-- NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+
+        <a class="navbar-brand" href="{{ url_for('home') }}">Notes App</a>
+
+        <!-- MOBILE TOGGLER -->
+        <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+            <!-- LEFT MENU -->
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                {% if session.get('username') %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('addnote') }}">Add Note</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('viewnotes') }}">View Notes</a></li>
+                {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('home') }}">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">Register</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('about') }}">About</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('contact') }}">Contact</a></li>
+                {% endif %}
+
+            </ul>
+
+            <!-- RIGHT SIDE (SEARCH + USER + LOGOUT) -->
+            {% if session.get('username') %}
+
+            <div class="d-flex flex-column flex-lg-row align-items-lg-center gap-2">
+
+                <!-- SEARCH -->
+                <form class="d-flex" method="GET" action="{{ url_for('search_user') }}">
+                    <input class="form-control form-control-sm me-2"
+                           type="text"
+                           name="username"
+                           placeholder="Search user..."
+                           required>
+
+                    <button class="btn btn-light btn-sm" type="submit">
+                        Search
+                    </button>
+                </form>
+
+                <!-- USERNAME -->
+                <span class="navbar-text text-white">
+                    Hi {{ session.get('username') }}
+                </span>
+
+                <!-- LOGOUT -->
+                <a class="btn btn-warning btn-sm" href="{{ url_for('logout') }}">
+                    Logout
+                </a>
+
+            </div>
+
+            {% endif %}
+
+        </div>
+    </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="container mt-4 flex-grow-1">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+</main>
+
+<!-- FOOTER -->
+<footer class="bg-primary text-white text-center p-3 mt-auto">
+    Notes Management System © 2026
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

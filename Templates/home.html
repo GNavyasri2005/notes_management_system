@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-7">
+
+        <div class="card shadow">
+            <div class="card-body p-4 text-center">
+
+                <h2 class="mb-3">
+                    Welcome to Notes Management System
+                </h2>
+
+                <p class="text-muted">
+                    A simple and secure web application to manage your personal notes efficiently.
+                </p>
+
+                <hr>
+
+                <p>
+                    ✍ Create your notes anytime<br>
+                    📂 Store them securely in database<br>
+                    🔍 Search and manage easily<br>
+                    🔐 Private and user-specific workspace
+                </p>
+
+                <div class="mt-4">
+
+                    <a href="{{ url_for('login') }}" class="btn btn-primary me-2">
+                        Login
+                    </a>
+
+                    <a href="{{ url_for('register') }}" class="btn btn-success">
+                        Register
+                    </a>
+
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

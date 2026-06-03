@@ -1,0 +1,75 @@
+/* General Page Styling */
+body {
+    background-color: #f7fafc;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Navbar */
+.navbar {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Cards */
+.card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+/* Forms */
+.form-control {
+    border-radius: 8px;
+}
+
+.form-control:focus {
+    box-shadow: 0 0 5px rgba(13, 110, 253, 0.4);
+}
+
+/* Buttons */
+.btn {
+    border-radius: 8px;
+}
+
+/* Notes Cards */
+.note-card {
+    transition: transform 0.2s ease;
+}
+
+.note-card:hover {
+    transform: translateY(-3px);
+}
+
+/* Page Headings */
+h2, h3 {
+    font-weight: 600;
+}
+
+/* Flash Messages */
+.alert {
+    border-radius: 8px;
+}
+
+/* Footer */
+footer {
+    margin-top: 30px;
+    font-size: 0.9rem;
+}
+
+footer strong {
+    color: #ffc107;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: 15px;
+    }
+
+    h2, h3 {
+        font-size: 1.4rem;
+    }
+}
