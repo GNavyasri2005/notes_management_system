@@ -5,7 +5,11 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>Your Notes</h3>
+    {% if search_user %}
+        <h3>Notes for "{{ search_user }}"</h3>
+    {% else %}
+        <h3>Your Notes</h3>
+    {% endif %}
 
     <a href="{{ url_for('addnote') }}" class="btn btn-success">
         Add New Note
@@ -38,7 +42,7 @@
 
                 <div class="mt-auto">
 
-                    <a href="{{ url_for('viewnotes', note_id=note.id) }}"
+                    <a href="{{ url_for('viewnote', note_id=note.id) }}"
                        class="btn btn-primary btn-sm">
                         View
                     </a>

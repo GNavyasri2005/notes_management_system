@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, session, flash, url_for
-import mysql.connector
+from datetime import datetime
+import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_session import Session
 from flask_mail import Mail, Message
@@ -38,13 +39,9 @@ s = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 # DB CONNECTION
 # =========================
 def get_db_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="root",
-        database="notes_management_system"
-    )
-
+    conn = sqlite3.connect("notes.db")
+    conn.row_factory = sqlite3.Row
+    return conn
 # =========================
 # LOGIN REQUIRED
 # =========================
@@ -80,13 +77,13 @@ def register():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT * FROM users WHERE username=%s OR email=%s", (username, email))
+        cur.execute("SELECT * FROM users WHERE username=? OR email=?", (username, email))
         if cur.fetchone():
             flash("User already exists", "danger")
             return redirect(url_for('register'))
 
         cur.execute(
-            "INSERT INTO users(username,email,password) VALUES(%s,%s,%s)",
+            "INSERT INTO users(username,email,password) VALUES(?,?,?)",
             (username, email, password)
         )
 
@@ -111,10 +108,10 @@ def login():
         password = request.form['password']
 
         conn = get_db_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         cur.execute(
-            "SELECT * FROM users WHERE username=%s OR email=%s",
+            "SELECT * FROM users WHERE username=? OR email=?",
             (username_or_email, username_or_email)
         )
 
@@ -136,7 +133,7 @@ def login():
             conn = get_db_connection()
             update_cur = conn.cursor()
             update_cur.execute(
-                "UPDATE users SET password=%s WHERE id=%s",
+                "UPDATE users SET password=? WHERE id=?",
                 (generate_password_hash(password), user['id'])
             )
             conn.commit()
@@ -171,9 +168,9 @@ def logout():
 @login_required
 def dashboard():
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
-    cur.execute("SELECT * FROM notes WHERE user_id=%s ORDER BY id DESC",
+    cur.execute("SELECT * FROM notes WHERE user_id=? ORDER BY id DESC",
                 (session['user_id'],))
 
     notes = cur.fetchall()
@@ -197,9 +194,11 @@ def addnote():
         conn = get_db_connection()
         cur = conn.cursor()
 
+        created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
         cur.execute(
-            "INSERT INTO notes(title,content,user_id) VALUES(%s,%s,%s)",
-            (title, content, session['user_id'])
+            "INSERT INTO notes(title,content,user_id,created_at) VALUES(?,?,?,?)",
+            (title, content, session['user_id'], created_at)
         )
 
         conn.commit()
@@ -219,9 +218,9 @@ def addnote():
 @login_required
 def viewnotes():
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
-    cur.execute("SELECT * FROM notes WHERE user_id=%s ORDER BY id DESC",
+    cur.execute("SELECT * FROM notes WHERE user_id=? ORDER BY id DESC",
                 (session['user_id'],))
 
     notes = cur.fetchall()
@@ -230,6 +229,25 @@ def viewnotes():
     conn.close()
 
     return render_template('viewnotes.html', notes=notes)
+
+
+@app.route('/viewnote/<int:note_id>')
+@login_required
+def viewnote(note_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM notes WHERE id=? AND user_id=?", (note_id, session['user_id']))
+    note = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if not note:
+        flash('Note not found or access denied', 'danger')
+        return redirect(url_for('viewnotes'))
+
+    return render_template('singlenote.html', note=note)
 
 
 # =========================
@@ -241,17 +259,15 @@ def search():
     query = request.args.get('q', '').strip()
 
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
     if query:
-        cur.execute("""
-            SELECT * FROM notes 
-            WHERE user_id=%s 
-            AND (title LIKE %s OR content LIKE %s)
-            ORDER BY id DESC
-        """, (session['user_id'], f"%{query}%", f"%{query}%"))
+        cur.execute(
+            "SELECT * FROM notes WHERE user_id=? AND (title LIKE ? OR content LIKE ?) ORDER BY id DESC",
+            (session['user_id'], f"%{query}%", f"%{query}%")
+        )
     else:
-        cur.execute("SELECT * FROM notes WHERE user_id=%s ORDER BY id DESC",
+        cur.execute("SELECT * FROM notes WHERE user_id=? ORDER BY id DESC",
                     (session['user_id'],))
 
     notes = cur.fetchall()
@@ -269,9 +285,9 @@ def search():
 @login_required
 def updatenote(note_id):
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
-    cur.execute("SELECT * FROM notes WHERE id=%s AND user_id=%s",
+    cur.execute("SELECT * FROM notes WHERE id=? AND user_id=?",
                 (note_id, session['user_id']))
     note = cur.fetchone()
 
@@ -280,11 +296,10 @@ def updatenote(note_id):
         return redirect(url_for('viewnotes'))
 
     if request.method == 'POST':
-        cur.execute("""
-            UPDATE notes 
-            SET title=%s, content=%s 
-            WHERE id=%s AND user_id=%s
-        """, (request.form['title'], request.form['content'], note_id, session['user_id']))
+        cur.execute(
+            "UPDATE notes SET title=?, content=? WHERE id=? AND user_id=?",
+            (request.form['title'], request.form['content'], note_id, session['user_id'])
+        )
 
         conn.commit()
         cur.close()
@@ -308,7 +323,7 @@ def deletenote(note_id):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("DELETE FROM notes WHERE id=%s AND user_id=%s",
+    cur.execute("DELETE FROM notes WHERE id=? AND user_id=?",
                 (note_id, session['user_id']))
 
     conn.commit()
@@ -406,9 +421,9 @@ def forgot_password():
         email = request.form['email']
 
         conn = get_db_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
-        cur.execute("SELECT * FROM users WHERE email=%s", (email,))
+        cur.execute("SELECT * FROM users WHERE email=?", (email,))
         user = cur.fetchone()
 
         cur.close()
@@ -468,7 +483,7 @@ def reset_password(token):
         cur = conn.cursor()
 
         cur.execute(
-            "UPDATE users SET password=%s WHERE email=%s",
+            "UPDATE users SET password=? WHERE email=?",
             (hashed_password, email)
         )
 
@@ -500,19 +515,27 @@ def reset_password(token):
 def search_user():
     username = request.args.get('username', '').strip()
 
-    conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
-
-    # find user
-    cur.execute("SELECT * FROM users WHERE username=%s", (username,))
-    user = cur.fetchone()
-
-    if not user:
-        flash("User not found", "danger")
+    if not username:
+        flash("Please enter a username to search", "warning")
         return redirect(url_for('dashboard'))
 
-    # get notes of that user
-    cur.execute("SELECT * FROM notes WHERE user_id=%s ORDER BY id DESC", (user['id'],))
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # case-insensitive partial match for username
+    cur.execute("SELECT * FROM users WHERE username LIKE ? COLLATE NOCASE", (f"%{username}%",))
+    users = cur.fetchall()
+
+    if not users:
+        flash("User not found", "danger")
+        cur.close()
+        conn.close()
+        return redirect(url_for('dashboard'))
+
+    # collect notes for all matched users
+    user_ids = [u['id'] for u in users]
+    placeholder = ','.join('?' for _ in user_ids)
+    cur.execute(f"SELECT * FROM notes WHERE user_id IN ({placeholder}) ORDER BY id DESC", tuple(user_ids))
     notes = cur.fetchall()
 
     cur.close()
