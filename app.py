@@ -27,7 +27,7 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = 'navyasrigongati@gmail.com'
-app.config['MAIL_PASSWORD'] = 'YOUR_APP_PASSWORD'  # 🔴 replace with real app password (no spaces)
+app.config['MAIL_PASSWORD'] = 'nwydnxerzyscbrle'  #  replace with real app password (no spaces)
 
 mail = Mail(app)
 
@@ -106,13 +106,13 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+
         username_or_email = request.form['username']
         password = request.form['password']
 
         conn = get_db_connection()
         cur = conn.cursor(dictionary=True)
 
-        # allow login with username OR email
         cur.execute(
             "SELECT * FROM users WHERE username=%s OR email=%s",
             (username_or_email, username_or_email)
@@ -123,13 +123,30 @@ def login():
         cur.close()
         conn.close()
 
-        if user is None:
+        if not user:
             flash("User not found", "danger")
             return redirect(url_for('login'))
 
-        if check_password_hash(user['password'], password):
+        stored_password = user['password']
+        password_matches = check_password_hash(stored_password, password)
+
+        if not password_matches and stored_password == password:
+            # Legacy plain-text password support: hash it on first successful login.
+            password_matches = True
+            conn = get_db_connection()
+            update_cur = conn.cursor()
+            update_cur.execute(
+                "UPDATE users SET password=%s WHERE id=%s",
+                (generate_password_hash(password), user['id'])
+            )
+            conn.commit()
+            update_cur.close()
+            conn.close()
+
+        if password_matches:
             session['user_id'] = user['id']
             session['username'] = user['username']
+
             flash("Login Successful", "success")
             return redirect(url_for('dashboard'))
 
@@ -137,8 +154,6 @@ def login():
         return redirect(url_for('login'))
 
     return render_template('login.html')
-
-
 # =========================
 # LOGOUT
 # =========================
@@ -318,7 +333,65 @@ def about():
 @app.route('/contact', methods=['GET', 'POST'])
 def contact():
     if request.method == 'POST':
-        flash("Message sent successfully!", "success")
+
+        name = request.form['name']
+        email = request.form['email']
+        subject = request.form['subject']
+        message = request.form['message']
+
+        try:
+
+            # Email to Admin
+            admin_msg = Message(
+                subject=f"New Contact Form - {subject}",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=['navyasrigongati@gmail.com']
+            )
+
+            admin_msg.body = f"""
+New Contact Form Submission
+
+Name: {name}
+Email: {email}
+Subject: {subject}
+
+Message:
+{message}
+"""
+
+            mail.send(admin_msg)
+
+            # Confirmation Email to User
+            user_msg = Message(
+                subject="Thank You for Contacting Us",
+                sender=app.config['MAIL_USERNAME'],
+                recipients=[email]
+            )
+
+            user_msg.body = f"""
+Hello {name},
+
+Thank you for contacting Notes Management System.
+
+We have received your message successfully.
+
+Subject:
+{subject}
+
+Our team will get back to you soon.
+
+Regards,
+Notes Management Team
+"""
+
+            mail.send(user_msg)
+
+            flash("Message sent successfully!", "success")
+
+        except Exception as e:
+            print("CONTACT ERROR:", e)
+            flash(f"Mail Error: {e}", "danger")
+
         return redirect(url_for('contact'))
 
     return render_template('contact.html')
@@ -363,35 +436,60 @@ def forgot_password():
 
     return render_template('forgot_password.html')
 
-
 # =========================
 # RESET PASSWORD
 # =========================
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
+
     try:
-        email = s.loads(token, salt='password-reset-salt', max_age=900)
-    except:
+        email = s.loads(
+            token,
+            salt='password-reset-salt',
+            max_age=900
+        )
+
+    except Exception:
         flash("Link expired or invalid", "danger")
         return redirect(url_for('forgot_password'))
 
     if request.method == 'POST':
-        new_password = generate_password_hash(request.form['password'])
+
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+
+        if password != confirm_password:
+            flash("Passwords do not match", "danger")
+            return render_template('reset_password.html')
+
+        hashed_password = generate_password_hash(password)
 
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("UPDATE users SET password=%s WHERE email=%s", (new_password, email))
+        cur.execute(
+            "UPDATE users SET password=%s WHERE email=%s",
+            (hashed_password, email)
+        )
 
         conn.commit()
+
+        rows_updated = cur.rowcount
+
+        print("Email:", email)
+        print("Rows Updated:", rows_updated)
+
         cur.close()
         conn.close()
+
+        if rows_updated == 0:
+            flash("User not found", "danger")
+            return redirect(url_for('forgot_password'))
 
         flash("Password updated successfully!", "success")
         return redirect(url_for('login'))
 
     return render_template('reset_password.html')
-
 # =========================
 # search
 # =========================
